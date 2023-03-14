@@ -48,7 +48,7 @@ The example supports ArgoCD UI configuration with a valid domain name (ie. examp
 
 ### (Option 1) LoadBalancer
 This is the default option.
-Unset the `TF_VAR_enable_ingress` variable if it is set:
+Unset the `TF_VAR_enable_ingress` variable if it is set. Defaults to `false`.
 ```
 unset TF_VAR_enable_ingress
 ```
