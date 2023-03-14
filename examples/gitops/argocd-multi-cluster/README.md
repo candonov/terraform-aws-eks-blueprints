@@ -45,18 +45,17 @@ Ensure that you have the following tools installed locally:
 
 ## Setup LoadBalancer or Ingress
 The example supports ArgoCD UI configuration with a valid domain name (ie. example.com) or LoadBalancer with a generated domain name.
-To use the Ingress, you must create a Route 53 Hosted zone, and configure ACM with the domain name.
 
 ### (Option 1) LoadBalancer
-Edit the [hub-cluster/main.tf](./hub-cluster/main.tf) and for the ArgoCD helm config `argocd_helm_config` variable comment `ingress` section and uncomment `service` section
-```hcl
-service : {
-  type : "LoadBalancer"
-}
+This is the default option.
+Unset the `TF_VAR_enable_ingress` variable if it is set:
+```
+unset TF_VAR_enable_ingress
 ```
 
 ### (Option 2) Ingress
-You will be able to use ArgoCD with a valid SSL certificate on a domain (i.e. argocd.example.com)
+To use the Ingress, you must create a Route 53 Hosted zone, and configure ACM with the domain name.
+You will be able to use ArgoCD with a valid SSL certificate on a domain (i.e. argocd.example.com).
 You can use a registered domain you control or register a new one following the instructions [here](https://aws.amazon.com/getting-started/hands-on/get-a-domain/).
 
 To enable this option, use:

@@ -78,11 +78,12 @@ locals {
 
   argocd_namespace           = "argocd"
   argocd_subdomain           = "argocd"
-  argocd_domain_arn          = data.aws_route53_zone.domain_name[0].arn
 
   # Multi-{account,region} setup
   region      = var.hub_region
   hub_profile = var.hub_profile
+
+  values_file = var.enable_ingress ? "ingress-values.yaml" : "lb-values.yaml"
 
   # AWS Cognito for ArgoCD SSO
   argocd_sso = var.argocd_enable_sso ? templatefile("${path.module}/cognito.yaml", {
@@ -141,135 +142,19 @@ module "eks_blueprints_kubernetes_addons" {
   argocd_helm_config = {
     namespace = local.argocd_namespace
     version   = "5.23.1" # ArgoCD v2.6.2
-    values = [
-      yamlencode(
-        {
-          dex : {
-            enabled : false # Disable dex since we are not using
-          }
-          redis-ha : {
-            enabled : true
-          }
-          controller : {
-            replicas : 3 # Additional replicas will cause sharding of managed clusters across number of replicas.
-            serviceAccount : {
-              annotations : {
-                "eks.amazonaws.com/role-arn" : module.argocd_irsa.irsa_iam_role_arn
-              }
-            }
-            metrics : {
-              enabled : true
-              service : {
-                annotations : {
-                  "prometheus.io/scrape" : true
-                }
-              }
-            }
-          }
-          repoServer : {
-            autoscaling : {
-              enabled : true
-              minReplicas : local.azs_count
-            }
-            resources : { # Adjust based on your specific use case (required for HPA)
-              limits : {
-                cpu : "200m"
-                memory : "512Mi"
-              }
-              requests : {
-                cpu : "100m"
-                memory : "256Mi"
-              }
-            }
-            metrics : {
-              enabled : true
-              service : {
-                annotations : {
-                  "prometheus.io/scrape" : true
-                }
-              }
-            }
-          }
-          applicationSet : {
-            replicaCount : 2 # The controller doesn't scale horizontally, is active-standby replicas
-            metrics : {
-              enabled : true
-              service : {
-                annotations : {
-                  "prometheus.io/scrape" : true
-                }
-              }
-            }
-          }
-          server : {
-            autoscaling : {
-              enabled : true
-              minReplicas : local.azs_count
-            }
-            resources : { # Adjust based on your specific use case (required for HPA)
-              limits : {
-                cpu : "200m"
-                memory : "512Mi"
-              }
-              requests : {
-                cpu : "100m"
-                memory : "256Mi"
-              }
-            }
-            metrics : {
-              enabled : true
-              service : {
-                annotations : {
-                  "prometheus.io/scrape" : true
-                }
-              }
-            }
-            serviceAccount : {
-              annotations : {
-                "eks.amazonaws.com/role-arn" : module.argocd_irsa.irsa_iam_role_arn
-              }
-            }
-            #service : {
-            #  type : "LoadBalancer"  # To use LoadBalaner uncomment here, and comment out below ingress and ingressGrpc
-            #}
-            ingress : {
-              enabled : true
-              annotations : {
-                "alb.ingress.kubernetes.io/scheme" : "internet-facing"
-                "alb.ingress.kubernetes.io/target-type" : "ip"
-                "alb.ingress.kubernetes.io/backend-protocol" : "HTTPS"
-                "alb.ingress.kubernetes.io/listen-ports" : "[{\"HTTPS\":443}]"
-                "alb.ingress.kubernetes.io/tags" : "Environment=hub,GitOps=true"
-              }
-              hosts : ["${local.argocd_subdomain}.${local.domain_name}"]
-              tls : [
-                {
-                  hosts : ["${local.argocd_subdomain}.${local.domain_name}"]
-                }
-              ]
-              ingressClassName : "alb"
-            }
-            ingressGrpc : {
-              enabled : true
-              isAWSALB : true
-              awsALB : {
-                serviceType : "ClusterIP"       # Instance mode needs type NodePort, IP mode needs type ClusterIP or NodePort
-                backendProtocolVersion : "GRPC" ## This tells AWS to send traffic from the ALB using HTTP2. Can use gRPC as well if you want to leverage gRPC specific features
-              }
-            }
-          }
-          configs : {
-            params : {
-              "application.namespaces" : "cluster-*" # See more config options at https://argo-cd.readthedocs.io/en/stable/operator-manual/app-any-namespace/
-            }
-            cm : {
-              "application.resourceTrackingMethod" : "annotation+label" #use annotation for tracking but keep labels for compatibility with other tools
-            }
-          }
-        }
-      ),
-      local.argocd_sso
-    ]
+    values = concat(
+      [templatefile("${path.module}/values.yaml", {
+         azs_count         = local.azs_count
+         irsa_iam_role_arn = module.argocd_irsa.irsa_iam_role_arn
+      })],
+      [templatefile("${path.module}/${local.values_file}", {
+         azs_count         = local.azs_count
+         irsa_iam_role_arn = module.argocd_irsa.irsa_iam_role_arn
+         argocd_subdomain  = local.argocd_subdomain
+         domain_name       = local.domain_name
+      })],
+      [local.argocd_sso]
+    )
     set_sensitive = [
       {
         name  = "configs.secret.argocdServerAdminPassword"
@@ -282,7 +167,7 @@ module "eks_blueprints_kubernetes_addons" {
   enable_aws_load_balancer_controller = true                      # ArgoCD UI depends on aws-loadbalancer-controller for Ingress
   enable_metrics_server               = true                      # ArgoCD HPAs depend on metric-server
   enable_external_dns                 = true                      # ArgoCD Server and UI use valid https domain name
-  external_dns_route53_zone_arns      = [data.aws_route53_zone.domain_name[0].arn] # ArgoCD Server and UI domain name is registered in Route 53
+  external_dns_route53_zone_arns      = [try(data.aws_route53_zone.domain_name[0].arn, "")] # ArgoCD Server and UI domain name is registered in Route 53
 
   # Observability for ArgoCD
   enable_amazon_eks_aws_ebs_csi_driver = true

@@ -1,0 +1,39 @@
+server:
+  autoscaling:
+    enabled: true
+    minReplicas: ${azs_count}
+  resources: # Adjust based on your specific use case (required for HPA)
+    limits:
+      cpu: "200m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        "prometheus.io/scrape" : true
+  serviceAccount:
+    annotations:
+      "eks.amazonaws.com/role-arn" : ${irsa_iam_role_arn}
+  ingress:
+    enabled: true
+    annotations:
+      "alb.ingress.kubernetes.io/scheme": "internet-facing"
+      "alb.ingress.kubernetes.io/target-type": "ip"
+      "alb.ingress.kubernetes.io/backend-protocol": "HTTPS"
+      "alb.ingress.kubernetes.io/listen-ports": "[{\"HTTPS\":443}]"
+      "alb.ingress.kubernetes.io/tags": "Environment=hub,GitOps=true"
+    hosts: 
+      - ${argocd_subdomain}.${domain_name}
+    tls:
+      - hosts: 
+        - ${argocd_subdomain}.${domain_name}
+    ingressClassName: "alb"
+  ingressGrpc: 
+    enabled: true
+    isAWSALB: true
+    awsALB:
+      serviceType: "ClusterIP"       # Instance mode needs type NodePort, IP mode needs type ClusterIP or NodePort
+      backendProtocolVersion: "GRPC" ## This tells AWS to send traffic from the ALB using HTTP2. Can use gRPC as well if you want to leverage gRPC specific features

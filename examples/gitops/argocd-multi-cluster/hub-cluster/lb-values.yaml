@@ -1,0 +1,21 @@
+server:
+  autoscaling:
+    enabled: true
+    minReplicas: ${azs_count}
+  resources: # Adjust based on your specific use case (required for HPA)
+    limits:
+      cpu: "200m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        "prometheus.io/scrape" : true
+  serviceAccount:
+    annotations:
+      "eks.amazonaws.com/role-arn" : ${irsa_iam_role_arn}
+  service:
+    type: "LoadBalancer"

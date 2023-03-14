@@ -1,0 +1,47 @@
+dex:
+  enabled: false # Disable dex since we are not using
+
+redis-ha:
+  enabled: true
+
+controller:
+  replicas: 3 # Additional replicas will cause sharding of managed clusters across number of replicas.
+  serviceAccount:
+    annotations:
+      "eks.amazonaws.com/role-arn": ${irsa_iam_role_arn}
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        "prometheus.io/scrape" : true
+
+repoServer:
+  autoscaling:
+    enabled: true
+    minReplicas: ${azs_count}
+  resources: # Adjust based on your specific use case (required for HPA)
+    limits:
+      cpu: "200m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        "prometheus.io/scrape" : true
+
+applicationSet:
+  replicaCount: 2 # The controller doesn't scale horizontally, is active-standby replicas
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        "prometheus.io/scrape" : true
+
+configs:
+  params:
+    "application.namespaces": "cluster-*" # See more config options at https://argo-cd.readthedocs.io/en/stable/operator-manual/app-any-namespace/
+  cm:
+    "application.resourceTrackingMethod": "annotation+label" #use annotation for tracking but keep labels for compatibility with other tools
