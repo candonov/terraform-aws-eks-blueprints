@@ -4,5 +4,5 @@ output "configure_kubectl" {
 }
 output "argocd_login" {
   description = "ArgoCD CLI login command"
-  value       = "argocd login ${local.argocd_subdomain}.${local.domain_name} --username admin"
+  value       = length(var.domain_name) > 0 ? "argocd login ${local.argocd_subdomain}.${local.domain_name} --username admin" : null
 }
