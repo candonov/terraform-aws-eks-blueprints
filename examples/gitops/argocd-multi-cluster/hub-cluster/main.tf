@@ -166,7 +166,7 @@ module "eks_blueprints_kubernetes_addons" {
   # Add-ons
   enable_aws_load_balancer_controller = true                      # ArgoCD UI depends on aws-loadbalancer-controller for Ingress
   enable_metrics_server               = true                      # ArgoCD HPAs depend on metric-server
-  enable_external_dns                 = true                      # ArgoCD Server and UI use valid https domain name
+  enable_external_dns                 = var.enable_ingress        # ArgoCD Server and UI use valid https domain name
   external_dns_route53_zone_arns      = [try(data.aws_route53_zone.domain_name[0].arn, "")] # ArgoCD Server and UI domain name is registered in Route 53
 
   # Observability for ArgoCD
